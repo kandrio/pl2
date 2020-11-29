@@ -54,7 +54,7 @@ fringe tree = reverse (walk [] tree)
                         acc' = walk acc x
 
 -- O(n) complexity
--- Notice that, at the end, the list is reversed before returned.
+-- Notice that, at the end, the list is reversed before return.
 -- This will be of interest for the next problem.
 
 
@@ -92,6 +92,11 @@ same_fringe tree1 tree2 = listEquals (fringe tree1) (fringe tree2)
 -- So, if a mismatch was encountered, then 'listEquals' would return
 -- 'False' before 'fringe' constructed the whole lists.
 
+-- Problem f
+
+-- In an eager language, the 2 fringe lists would be constructed before
+-- the equality check. 
+
 
 -- Problem g
 fibtree_naive :: Int -> Tree Int 
@@ -116,6 +121,19 @@ fibtree 2 = Node 1 [Node 1 [], Node 0 []]
 fibtree n = Node (x1+x2) [Node x1 ((Node x2 x2children):x1children), (Node x2 x2children)]
   where
     Node x1 ((Node x2 x2children):x1children) = fibtree (n-1)
+
+-- T(n) = T(n-1) + T(n-2) = [T(n-2) + T(n-3)] + T(n-2) = 2*T(n-2) + T(n-3) ...
+-- It is obvious that the naive approach would evaluate T(n-2) twice and so on.
+-- In the function above, we use the same immutable "variable", (Node x2 x2children), for T(n-2). 
+-- Otherwise, we would need to construct it twice, since T(n-2) is the right subtree of T(n) 
+-- and the left subtree of T(n-1). Now, this way T(n-2) will be constructed and evaluated only once.
+-- So, now the Fibonacci tree takes up O(n) space.
+
+-- Problem i
+-- 'mirror (fibtree n)' creates an altered version of each node of the tree by reversing the children 
+-- list of the node and does the same for its children, recursively. As a result, it will take up space 
+-- that is exponentially large, since it is applied seperately to subtrees that are the same.
+
 
 t = Node 'a' [ Node 'b' [ Node 'd' [Node 'i' []]
                         , Node 'e' [Node 'j' [], Node 'k' []]
