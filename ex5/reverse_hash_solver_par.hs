@@ -34,11 +34,13 @@ parMap' f (a:as) = do
     bs <- parMap' f as
     return (b : bs)
 
+
+-- Simple parallel solver
 solver_par :: (Int -> Int) -> [Int] -> MVar () -> MVar [(Int, Int)] -> Int -> IO ()
 solver_par hash _ signal box schedulers = do
     let num = schedulers*schedulers*4 
     output <- runEvalIO (parMap' (hashes_of_range hash) (ranges num num 0 (round(2**27-1))))
-    let flat_output = concat output
+    let flat_output = concat output -- A list of tuples: (output, input), one for each possible input
     _ <- readMVar signal
     _ <- putMVar box (flat_output)
     return ()
