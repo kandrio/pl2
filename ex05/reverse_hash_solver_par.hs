@@ -27,20 +27,23 @@ ranges n counter start end =
         in 
             ((start, end'):(ranges n (counter-1) (end' + 1) end)) 
 
-parMap' :: NFData b => (a -> b) -> [a] -> Eval [b]
-parMap' f [] = return []
-parMap' f (a:as) = do
+parMap' :: NFData b => (a -> b) -> [a] -> MVar () -> Eval [b]
+parMap' f [] _ = return []
+parMap' f (a:as) signal = do
+    sig <- return (tryReadMVar signal) 
+    return (if (sig /= Nothing) then [] else let b  = runEval (rpar (force_eval (f a)))
+                                                 bs = runEval (parMap' f as signal)
+                                                 in (b : bs))
+    {-|
     b <- rpar (force_eval (f a))
-    bs <- parMap' f as
+    bs <- parMap' f as signal
     return (b : bs)
-
-
--- Simple parallel solver
+    -}
 solver_par :: (Int -> Int) -> [Int] -> MVar () -> MVar [(Int, Int)] -> Int -> IO ()
 solver_par hash _ signal box schedulers = do
     let num = schedulers*schedulers*4 
-    output <- runEvalIO (parMap' (hashes_of_range hash) (ranges num num 0 (round(2**27-1))))
-    let flat_output = concat output -- A list of tuples: (output, input), one for each possible input
+    output <- runEvalIO (parMap' (hashes_of_range hash) (ranges num num 0 (round(2**27-1))) signal)
+    let flat_output = concat output
     _ <- readMVar signal
     _ <- putMVar box (flat_output)
     return ()
