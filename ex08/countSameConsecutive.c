@@ -4,24 +4,23 @@ Software versions:
   alt-ergo : 2.2.0
 
 This script was run using this command:
-  frama-c -wp -wp-prover alt-ergo -wp-rte -wp-timeout 30 -wp-verbose 0 countSameConsecutive.c -then -report
+  frama-c -wp -wp-prover alt-ergo -wp-rte -wp-timeout 300 -wp-verbose 0 countSameConsecutive.c -then -report
 */
 
 // This predicate is true if there is a subsequence of length "answer"
 // with all its elements equal.
-/*@ predicate isValidAnswer(integer N, int *x, int answer) = 
-  @   (N == 0 ==> answer == 0) && 
-  @   (N >  0 ==> (\exists integer i; 0 <= i <= N-answer ==> 
-  @     (\forall integer j; i <= j <= i+answer-1 ==> x[j] == x[i])));
+/*@ predicate isValidAnswer(integer N, int *x, int answer) =  
+  @ \exists integer i; 0 <= i <= N-answer &&
+  @   (\forall integer j; i <= j <= i+answer-1 ==> x[j] == x[i]);
   @*/
 
 // This predicate is true if there is no subsequence of length "answer+1"
 // with all its elements equal.
 /*@
   @ predicate noBetterAnswerExists(integer N, int *x, int answer) =
-  @   (N == answer) || 
-  @   (\forall integer i; 0 <= i <= N-1-answer ==> 
-  @     (\exists integer j; i < j <= i+answer ==> x[j] != x[i]));
+  @  (N == answer) || 
+  @  ((1 <= answer < N) && (\forall integer i; 0 <= i <= N-1-answer ==>
+  @    (\exists integer j; i < j <= i+answer && x[j] != x[i])));
   @*/
 
 
@@ -31,8 +30,7 @@ This script was run using this command:
   @   noBetterAnswerExists(N, x, answer); 
   @*/
 
-/*@ requires N >= 1;
-  @ requires N <= 1000000;
+/*@ requires 1 <= N <= 1000000;
   @ requires \valid(x + (0 .. N-1));
   @ assigns \nothing;
   @ ensures isBest(N, x, \result);
@@ -40,13 +38,16 @@ This script was run using this command:
 int countSameConsecutive(int N, int x[]) {
     int best = 0, i = 0;
     /*@ loop invariant 0 <= i <= N;
-      @ loop invariant isBest(i, x, best);
+      @ loop invariant i == 0 ==> best == 0;
+      @ loop invariant 0 < i <= N ==> isBest(i, x, best);
+      @ loop invariant 0 < i <  N ==> x[i] != x[i-1];
       @ loop assigns i, best;
       @ loop variant N-i;
       @*/
     while (i < N) {
         int j = i+1;
         /*@ loop invariant i+1 <= j <= N;
+          @ loop invariant \forall integer k; i+1 <= k < j ==> x[i] == x[k];
           @ loop assigns j;
           @ loop variant N-j;
           @*/
