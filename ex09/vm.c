@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include "vm.h"
 
+// This function reads the program from the input file and 
+// "writes" it in the program array.
 int read_program(FILE *fp, uint8_t program[65536][5]) {
     int n;
     uint8_t op;
@@ -98,12 +100,67 @@ int read_program(FILE *fp, uint8_t program[65536][5]) {
                 break;
             default:
                 printf("Error! Operator is not correct!");
-                break;
         }
         pc++;    
     }
 }
 
+int pop(int stack[], int *sc) {
+    if (sc == -1) {
+        printf("Cannot pop from empty stack!\n");
+        return -1;
+    }
+    return stack[*sc--];
+}
+
+int push(int stack[], int *sc, int new_elem) {
+    if (*sc == STACK_SIZE-1) {
+        printf("Cannot push in full stack!\n");
+        return -1;
+    }
+    
+    stack[++(*sc)] = new_elem;
+    return 0;
+}
+
+int swap(int *x, int *y){
+    int temp = *x;
+    *x = *y;
+    *y = temp;
+}
+
+int run_program(uint8_t program[65536][5]){
+    int pc = 0;
+    int stack[STACK_SIZE];
+    int temp, stack_counter = -1, stack_index, stack_element;
+    
+    while(1) {
+        switch (program[pc][0]) {
+            case HALT:
+                return 0;
+            case JUMP:
+                pc = program[pc][2]*8 + program[pc][1];
+                break;
+            case JNZ:
+                if(pop(stack, &stack_counter) != 0){
+                    pc = program[pc][2]*8 + program[pc][1];
+                }
+                break;
+            case DUP:
+                stack_index = stack_counter - program[pc][1];
+                stack_element = stack[stack_index];
+                push(stack, stack_counter, stack_element);
+                pc++;
+                break;
+            case SWAP:
+                stack_index = stack_counter - program[pc][1];
+                swap(&stack[stack_index], &stack[stack_counter]);
+                break;
+            default:
+                printf("Something went wrong when running the program!\n");
+        }
+    }
+}
 
 int main(int argc, char **argv) {
     // We store the program commands in this array.
@@ -120,6 +177,8 @@ int main(int argc, char **argv) {
     }
 
     read_program(fp, program);
+
+    // run_program(program);
 
     return 0;
 }

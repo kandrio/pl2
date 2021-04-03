@@ -27,3 +27,5 @@
 #define CONS    0x30
 #define HD      0x31
 #define TL      0x32
+
+#define STACK_SIZE 1000
