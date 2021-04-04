@@ -6,18 +6,26 @@
 // "writes" it in the program array.
 int read_program(FILE *fp, uint8_t program[65536][5]) {
     int n;
+    
+    // This will be used to read the op-code of each command.
     uint8_t op;
+
+    // This will be used to read the byte arguments of each command
+    // (if they exist).
     uint8_t byte_args[4];
+
+    // This counter keeps track of the number of commands.
     int pc = 0;
+
+    // We read until we reach ___EOF___.
     while (fread(&op, 1, 1, fp) > 0) {
         
-        // Pass the op-code in the first element of each line
+        // Pass the op-code in the first element of each row
         // of the program array.
         program[pc][0] = op;
         printf("%02X\n", op);
         
-        // Fill the next elements of that program line with the integer
-        // parameters that may exist.
+        // Fill the next elements of that row with the byte parameters (if they exist).
         switch(op) {
             case HALT:
                 break;
@@ -126,7 +134,7 @@ int read_program(FILE *fp, uint8_t program[65536][5]) {
             case TL:
                 break;
             default:
-                printf("Error! Operator is not correct!");
+                printf("Error: Invalid operator.\n");
                 return 0;
         }
         pc++;    
@@ -135,22 +143,25 @@ int read_program(FILE *fp, uint8_t program[65536][5]) {
 }
 
 
-// These functions are meant for the manipulation of the stack.
-int pop(int stack[], int *sc) {
-    if (*sc == -1) {
-        printf("Cannot* pop from empty stack!\n");
+// These functions bellow are used for the manipulation of the stack.
+
+int pop(int stack[], int *stack_counter, int *stack_element) {
+    if (*stack_counter == -1) {
+        printf("The stack is empty. Cannot pop!\n");
         return -1;
     }
-    return stack[*sc--];
+
+    *stack_element = stack[*stack_counter--];
+    return 0;
 }
 
-int push(int stack[], int *sc, int new_elem) {
-    if (*sc == STACK_SIZE-1) {
-        printf("Cannot push in full stack!\n");
+int push(int stack[], int *stack_counter, int new_elem) {
+    if (*stack_counter == STACK_SIZE-1) {
+        printf("The stack is full. Cannot push!\n");
         return -1;
     }
     
-    stack[++(*sc)] = new_elem;
+    stack[++(*stack_counter)] = new_elem;
     return 0;
 }
 
@@ -163,7 +174,7 @@ int swap(int *x, int *y){
 int run_program(uint8_t program[65536][5]){
     int pc = 0;
     int stack[STACK_SIZE];
-    int stack_counter = -1, stack_index, stack_element;
+    int stack_counter = -1, stack_index, stack_element, a, b;
     
     while(1) {
         switch (program[pc][0]) {
@@ -171,26 +182,298 @@ int run_program(uint8_t program[65536][5]){
                 printf("HALT: Terminating program execution!\n");
                 return 0;
             case JUMP:
-                pc = program[pc][2]*8 + program[pc][1];
+                pc = program[pc][2]*16 + program[pc][1];
                 printf("JUMP: Going at PC: %d\n", pc);
                 break;
             case JNZ:
-                if(pop(stack, &stack_counter) != 0){
-                    pc = program[pc][2]*8 + program[pc][1];
+                if(pop(stack, &stack_counter, &stack_element) == -1){
+                    printf("JNZ: Stack error!");
+                    return -1;
+                }
+                if (stack_element != 0){
+                    pc = program[pc][2]*16 + program[pc][1];
                 }
                 break;
             case DUP:
                 stack_index = stack_counter - program[pc][1];
                 stack_element = stack[stack_index];
-                push(stack, &stack_counter, stack_element);
-                pc++;
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("DUP: Stack error!");
+                    return -1; 
+                }
                 break;
             case SWAP:
                 stack_index = stack_counter - program[pc][1];
                 swap(&stack[stack_index], &stack[stack_counter]);
                 break;
             case DROP:
-                pop(stack, &stack_counter);
+                if(pop(stack, &stack_counter, &stack_element) == -1){
+                    printf("DROP: Stack error!");
+                    return -1;
+                }
+                break;
+            case PUSH4:
+                stack_element = program[pc][4]*4096 
+                + program[pc][3]*256 
+                + program[pc][2]*16 
+                + program[pc][1];
+                break;
+            case PUSH2:
+                stack_element = program[pc][2]*16 + program[pc][1];
+                break;
+            case PUSH1:
+                stack_element = program[pc][1];
+                break;
+            case ADD:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("ADD: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("ADD: Stack error!");
+                    return -1;
+                }
+                stack_element = a + b;
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("ADD: Stack error!");
+                    return -1; 
+                }
+                break;
+            case SUB:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("SUB: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("SUB: Stack error!");
+                    return -1;
+                }
+                stack_element = a - b;
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("SUB: Stack error!");
+                    return -1; 
+                }
+                break;
+            case MUL:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("MUL: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("MUL: Stack error!");
+                    return -1;
+                }
+                stack_element = a*b;
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("MUL: Stack error!");
+                    return -1; 
+                }
+                break;
+            case DIV:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("DIV: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("DIV: Stack error!");
+                    return -1;
+                }
+                stack_element = a/b;
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("DIV: Stack error!");
+                    return -1; 
+                }
+                break;
+            case MOD:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("MOD: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("MOD: Stack error!");
+                    return -1;
+                }
+                stack_element = a%b;
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("MOD: Stack error!");
+                    return -1; 
+                }
+                break;
+            case EQ:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("EQ: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("EQ: Stack error!");
+                    return -1;
+                }
+                if (a == b) {
+                    stack_element = 1;
+                }
+                else {
+                    stack_element = 0;
+                }
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("EQ: Stack error!");
+                    return -1; 
+                }
+                break;
+            case NE:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("NE: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("NE: Stack error!");
+                    return -1;
+                }
+                if (a != b) {
+                    stack_element = 1;
+                }
+                else {
+                    stack_element = 0;
+                }
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("NE: Stack error!");
+                    return -1; 
+                }
+                break;
+            case LT:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("LT: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("LT: Stack error!");
+                    return -1;
+                }
+                if (a < b) {
+                    stack_element = 1;
+                }
+                else {
+                    stack_element = 0;
+                }
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("LT: Stack error!");
+                    return -1; 
+                }
+                break;
+            case GT:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("GT: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("GT: Stack error!");
+                    return -1;
+                }
+                if (a > b) {
+                    stack_element = 1;
+                }
+                else {
+                    stack_element = 0;
+                }
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("GT: Stack error!");
+                    return -1; 
+                }
+                break;
+            case LE:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("LE: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("LE: Stack error!");
+                    return -1;
+                }
+                if (a <= b) {
+                    stack_element = 1;
+                }
+                else {
+                    stack_element = 0;
+                }
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("LE: Stack error!");
+                    return -1; 
+                }
+                break;
+            case GE:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("GE: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("GE: Stack error!");
+                    return -1;
+                }
+                if (a >= b) {
+                    stack_element = 1;
+                }
+                else {
+                    stack_element = 0;
+                }
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("GE: Stack error!");
+                    return -1; 
+                }
+                break;
+            case NOT:
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("NOT: Stack error!");
+                    return -1;
+                }
+                if(a == 0){
+                    stack_element = 1;
+                }
+                else {
+                    stack_element = 0;
+                }
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("NOT: Stack error!");
+                    return -1; 
+                }
+                break;
+            case AND:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("AND: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("AND: Stack error!");
+                    return -1;
+                }
+                if (a != 0 && b != 0) {
+                    stack_element = 1;
+                }
+                else {
+                    stack_element = 0;
+                }
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("AND: Stack error!");
+                    return -1; 
+                }
+                break;
+            case OR:
+                if(pop(stack, &stack_counter, &b) == -1){
+                    printf("OR: Stack error!");
+                    return -1;
+                }
+                if(pop(stack, &stack_counter, &a) == -1){
+                    printf("OR: Stack error!");
+                    return -1;
+                }
+                if (a == 0 && b == 0) {
+                    stack_element = 0;
+                }
+                else {
+                    stack_element = 1;
+                }
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("OR: Stack error!");
+                    return -1; 
+                }
                 break;
             default:
                 printf("Something went wrong when running the program!\n");
