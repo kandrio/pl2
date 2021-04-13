@@ -1,240 +1,190 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <time.h>
 #include "vm.h"
 
-// This function reads the program from the input file and 
-// "writes" it in the program array.
-int read_program(FILE *fp, uint8_t program[65536][5]) {
-    int n;
+// This function reads the program from the input file: fp, and 
+// "writes" it in the byte_program array.
+int read_program(FILE *fp, uint8_t byte_program[65536]) {
     
-    // This will be used to read the op-code of each command.
-    uint8_t op;
+    // This will be used to read a byte from the input.
+    uint8_t b;
 
-    // This will be used to read the byte arguments of each command
-    // (if they exist).
-    uint8_t byte_args[4];
-
-    // This counter keeps track of the number of commands.
+    // This counter keeps track of the number of bytes read.
     int pc = 0;
 
     // We read until we reach ___EOF___.
-    while (fread(&op, 1, 1, fp) == 1) {
+    while (fread(&b, 1, 1, fp) == 1) {
+        byte_program[pc++] = b;
+        printf("Byte: %02X\n", b);
         
-        // Pass the op-code in the first element of each row
-        // of the program array.
-        program[pc][0] = op;
-        printf("PC: %d, op-code: %02X\n", pc, op);
-        
-        // Fill the next elements of that row with the byte parameters (if they exist).
-        switch(op) {
-            case HALT:
-                break;
-            case JUMP:
-                n = fread(byte_args, 1, 2, fp);
-                if (n != 2){
-                    printf("Error in JUMP!\n");
-                    return 1;
-                }
-                program[pc][1] = byte_args[0];
-                program[pc][2] = byte_args[1];
-                n = program[pc][2]*(2^8) + program[pc][1];
-                printf("JUMP: Going at PC: %d\n", n);
-                break;
-            case JNZ:
-                n = fread(byte_args, 1, 2, fp);
-                if (n!=2){
-                    printf("Error in JNZ!\n");
-                    return 1;
-                }
-                program[pc][1] = byte_args[0];
-                program[pc][2] = byte_args[1];
-                break;
-            case DUP:
-                n = fread(byte_args, 1, 1, fp);
-                if (n!=1){
-                    printf("Error in DUP!\n");
-                    return 1;
-                }
-                program[pc][1] = byte_args[0];
-                break;
-            case SWAP:
-                fread(byte_args, 1, 1, fp);
-                if (n!=1){
-                    printf("Error in SWAP!\n");
-                    return 1;
-                }
-                program[pc][1] = byte_args[0];
-                break;
-            case DROP:
-                break;
-            case PUSH4:
-                n = fread(byte_args, 1, 4, fp);
-                if (n!=4){
-                    printf("Error in PUSH4!\n");
-                    return 1;
-                }
-                program[pc][1] = byte_args[0];
-                program[pc][2] = byte_args[1];
-                program[pc][3] = byte_args[2];
-                program[pc][4] = byte_args[3];
-                break;
-            case PUSH2:
-                n = fread(byte_args, 1, 2, fp);
-                if (n!=2){
-                    printf("Error in PUSH2!\n");
-                    return 1;
-                }
-                program[pc][1] = byte_args[0];
-                program[pc][2] = byte_args[1];
-                break;
-            case PUSH1:
-                n = fread(byte_args, 1, 1, fp);
-                if (n != 1){
-                    printf("Error in PUSH1!\n");
-                    return 1;
-                }
-                program[pc][1] = byte_args[0];
-                printf("%02X\n", byte_args[0]);
-                break;
-            case ADD:                
-                break;
-            case SUB:
-                break;
-            case MUL:
-                break;
-            case DIV:
-                break;
-            case MOD:
-                break;
-            case EQ:
-                break;
-            case NE:
-                break;
-            case LT:
-                break;
-            case GT:
-                break;
-            case LE:
-                break;
-            case GE:
-                break;
-            case NOT:
-                break;
-            case AND:
-                break;
-            case OR:
-                break;
-            case INPUT:
-                break;
-            case OUTPUT:
-                break;
-            case CLOCK:
-                break;
-            case CONS:
-                break;
-            case HD:
-                break;
-            case TL:
-                break;
-            default:
-                printf("Error: Invalid operator.\n");
-                return -1;
-        }
-        pc++;    
     }
+
     return pc;
 }
 
-
-// These functions bellow are used for the manipulation of the stack.
-
-int pop(int stack[], int *stack_counter, int *stack_element) {
-    if (*stack_counter == -1) {
-        printf("The stack is empty. Cannot pop!\n");
-        return -1;
-    }
-
-    *stack_element = stack[*stack_counter--];
-    return 0;
-}
-
-int push(int stack[], int *stack_counter, int new_elem) {
-    if (*stack_counter == STACK_SIZE-1) {
-        printf("The stack is full. Cannot push!\n");
-        return -1;
-    }
-    
-    stack[++(*stack_counter)] = new_elem;
-    return 0;
-}
-
-int swap(int *x, int *y){
-    int temp = *x;
-    *x = *y;
-    *y = temp;
-}
-
-int run_program(uint8_t program[65536][5], int max_pc){
+int run_program(int num_of_bytes, uint8_t byte_program[65535]){
     int pc = 0;
     int stack[STACK_SIZE];
-    int stack_counter = -1, stack_index, stack_element, a, b, hd, tl, 
+    int stack_counter = 0, stack_index, stack_element, a, b, hd, tl, 
     upper_address, lower_address;
     clock_t time_start = clock();
     double time_duration;
     int *cons;
     uintptr_t address;
     
-    while(pc < max_pc) {
-        printf("Program counter: %d\n", pc);
-        switch (program[pc][0]) {
+    while(pc < num_of_bytes) {
+#ifdef DEBUG
+        printf("Program counter: %d, command: %02X \n", pc, byte_program[pc]);
+#endif
+        switch (byte_program[pc]) {
             case HALT:
+#ifdef DEBUG
                 printf("HALT: Terminating program execution!\n");
+#endif
                 return 0;
             case JUMP:
-                pc = program[pc][2]*(2^8) + program[pc][1] - 1;
+                //pc = byte_program[pc+2]*(2^8) + byte_program[pc+1];
+                pc = (int)((uint16_t)byte_program[pc+1]);
+#ifdef DEBUG
                 printf("JUMP: Going at PC: %d\n", pc);
-                continue;
+#endif
+                break;
             case JNZ:
                 if(pop(stack, &stack_counter, &stack_element) == -1){
                     printf("JNZ: Stack error!");
                     return -1;
                 }
                 if (stack_element != 0){
-                    pc = program[pc][2]*(2^8) + program[pc][1]-1;
-                    continue;
+                    //pc = byte_program[pc+2]*(2^8) + byte_program[pc+1];
+                    pc = (int)((uint16_t)byte_program[pc+1]);
+#ifdef DEBUG
+                    printf("JNZ: Not Zero! Going at PC: %d\n", pc);
+                    printf("Stack: ");
+                    for(int i=0; i<stack_counter; i++)
+                        printf("%d ", stack[i]);
+                    printf("\n");
+#endif
+                    break;
                 }
+#ifdef DEBUG
+                printf("JNZ: Zero! Going at PC: %d\n", pc);
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+#endif
+                pc += 3;
                 break;
             case DUP:
-                stack_index = stack_counter - program[pc][1];
+                stack_index = stack_counter - 1 - byte_program[pc+1];
+
+                if(stack_index < 0 || stack_index >= stack_counter){
+                    printf("DUP: Stack error! Index out of bounds.\n");
+                    printf("DUP: Stack counter was: %d, index was: %d.\n", stack_counter, (int)byte_program[pc+1]);
+                    return -1;
+                }
+
                 stack_element = stack[stack_index];
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("DUP: Stack error!");
                     return -1; 
                 }
+#ifdef DEBUG
+                printf("DUP: Duplicated stack element %d\n", stack_element);
+                printf("It was at position %d\n", stack_index);
+                printf("Number of stack elements now: %d\n", stack_counter);
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+#endif        
+                pc += 2;
                 break;
             case SWAP:
-                stack_index = stack_counter - program[pc][1];
+                stack_index = stack_counter - byte_program[pc+1];
                 swap(&stack[stack_index], &stack[stack_counter]);
+#ifdef DEBUG
+                printf("SWAP: Swapped %d and %d\n", stack[stack_index], stack[stack_counter]);
+#endif  
+                pc += 2;
                 break;
             case DROP:
                 if(pop(stack, &stack_counter, &stack_element) == -1){
                     printf("DROP: Stack error!");
                     return -1;
                 }
+#ifdef DEBUG
+                printf("DROP: Dropped %d\n", stack_element);
+#endif  
+                pc++;
                 break;
             case PUSH4:
-                stack_element = program[pc][4]*4096 
-                + program[pc][3]*256 
-                + program[pc][2]*16 
-                + program[pc][1];
+                stack_element = (int)(*((uint32_t *) &byte_program[pc+1]));
+                /*
+                stack_element = byte_program[pc+4]*(2^24) 
+                + byte_program[pc+3]*(2^16)
+                + byte_program[pc+2]*(2^8) 
+                + byte_program[pc+1];
+                */
+#ifdef DEBUG
+                printf("PUSH4: Stack element %d\n", stack_element);
+                printf("%x, %x, %x, %x\n", byte_program[pc+1], byte_program[pc+2], byte_program[pc+3], byte_program[pc+4]);
+#endif          
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("PUSH4: Stack error!");
+                    return -1; 
+                }
+#ifdef DEBUG
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+#endif
+
+                pc += 5;
                 break;
             case PUSH2:
-                stack_element = program[pc][2]*16 + program[pc][1];
+                // stack_element = byte_program[pc+2]*(2^16) + byte_program[pc+1]*(2^8);
+                stack_element = *((uint16_t *) &byte_program[pc+1]);
+
+#ifdef DEBUG
+                printf("PUSH2: Stack element %d\n", stack_element);
+#endif  
+                
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("PUSH2: Stack error!");
+                    return -1;
+                }
+#ifdef DEBUG
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+#endif
+
+                pc += 3;
                 break;
             case PUSH1:
-                stack_element = program[pc][1];
+                stack_element = (int)byte_program[pc+1];
+#ifdef DEBUG
+                printf("PUSH1: Stack element %d\n", stack_element);
+#endif 
+
+                if (push(stack, &stack_counter, stack_element) == -1){
+                    printf("PUSH1: Stack error!");
+                    return -1; 
+                }
+#ifdef DEBUG
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+#endif
+
+                pc += 2;
                 break;
             case ADD:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -246,10 +196,20 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     return -1;
                 }
                 stack_element = a + b;
+#ifdef DEBUG
+                printf("ADD: %d + %d = %d\n", a, b, stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("ADD: Stack error!");
-                    return -1; 
+                    return -1;
                 }
+#ifdef DEBUG
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+#endif
+                pc++;
                 break;
             case SUB:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -261,10 +221,20 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     return -1;
                 }
                 stack_element = a - b;
+#ifdef DEBUG
+                printf("SUB: %d - %d = %d\n", a, b, stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("SUB: Stack error!");
                     return -1; 
                 }
+#ifdef DEBUG
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+#endif
+                pc++;
                 break;
             case MUL:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -276,10 +246,14 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     return -1;
                 }
                 stack_element = a*b;
+#ifdef DEBUG
+                printf("MUL: %d * %d = %d\n", a, b, stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("MUL: Stack error!");
                     return -1; 
                 }
+                pc++;
                 break;
             case DIV:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -291,10 +265,14 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     return -1;
                 }
                 stack_element = a/b;
+#ifdef DEBUG
+                printf("DIV: %d / %d = %d\n", a, b, stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("DIV: Stack error!");
                     return -1; 
                 }
+                pc++;
                 break;
             case MOD:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -306,18 +284,22 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     return -1;
                 }
                 stack_element = a%b;
+#ifdef DEBUG
+                printf("ADD: %d mod %d = %d\n", a, b, stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("MOD: Stack error!");
                     return -1; 
                 }
+                pc++;
                 break;
             case EQ:
                 if(pop(stack, &stack_counter, &b) == -1){
-                    printf("EQ: Stack error!");
+                    printf("EQ: Stack error!\n");
                     return -1;
                 }
                 if(pop(stack, &stack_counter, &a) == -1){
-                    printf("EQ: Stack error!");
+                    printf("EQ: Stack error!\n");
                     return -1;
                 }
                 if (a == b) {
@@ -326,10 +308,20 @@ int run_program(uint8_t program[65536][5], int max_pc){
                 else {
                     stack_element = 0;
                 }
+#ifdef DEBUG
+                printf("EQ: Result: %d\n", stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
-                    printf("EQ: Stack error!");
+                    printf("EQ: Stack error!\n");
                     return -1; 
                 }
+#ifdef DEBUG
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+#endif
+                pc++;
                 break;
             case NE:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -346,10 +338,18 @@ int run_program(uint8_t program[65536][5], int max_pc){
                 else {
                     stack_element = 0;
                 }
+#ifdef DEBUG
+                printf("NE: Result %d\n", stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("NE: Stack error!");
                     return -1; 
                 }
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+                pc++;
                 break;
             case LT:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -366,10 +366,14 @@ int run_program(uint8_t program[65536][5], int max_pc){
                 else {
                     stack_element = 0;
                 }
+#ifdef DEBUG
+                printf("LT: Result %d\n", stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("LT: Stack error!");
                     return -1; 
                 }
+                pc++;
                 break;
             case GT:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -386,10 +390,14 @@ int run_program(uint8_t program[65536][5], int max_pc){
                 else {
                     stack_element = 0;
                 }
+#ifdef DEBUG
+                printf("GT: Result %d\n", stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("GT: Stack error!");
                     return -1; 
                 }
+                pc++;
                 break;
             case LE:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -406,10 +414,14 @@ int run_program(uint8_t program[65536][5], int max_pc){
                 else {
                     stack_element = 0;
                 }
+#ifdef DEBUG
+                printf("LE: Result %d\n", stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("LE: Stack error!");
-                    return -1; 
+                    return -1;
                 }
+                pc++;
                 break;
             case GE:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -426,10 +438,14 @@ int run_program(uint8_t program[65536][5], int max_pc){
                 else {
                     stack_element = 0;
                 }
+#ifdef DEBUG
+                printf("GE: Result %d\n", stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("GE: Stack error!");
                     return -1; 
                 }
+                pc++;
                 break;
             case NOT:
                 if(pop(stack, &stack_counter, &a) == -1){
@@ -442,10 +458,14 @@ int run_program(uint8_t program[65536][5], int max_pc){
                 else {
                     stack_element = 0;
                 }
+#ifdef DEBUG
+                printf("NOT: Result %d\n", stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("NOT: Stack error!");
                     return -1; 
                 }
+                pc++;
                 break;
             case AND:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -462,10 +482,14 @@ int run_program(uint8_t program[65536][5], int max_pc){
                 else {
                     stack_element = 0;
                 }
+#ifdef DEBUG
+                printf("AND: Result %d\n", stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("AND: Stack error!");
                     return -1; 
                 }
+                pc++;
                 break;
             case OR:
                 if(pop(stack, &stack_counter, &b) == -1){
@@ -482,10 +506,14 @@ int run_program(uint8_t program[65536][5], int max_pc){
                 else {
                     stack_element = 1;
                 }
+#ifdef DEBUG
+                printf("OR: Result %d\n", stack_element);
+#endif 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("OR: Stack error!\n");
                     return -1; 
                 }
+                pc++;
                 break;
             case INPUT:
                 scanf("%d", &stack_element);
@@ -493,17 +521,34 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     printf("INPUT: Stack error!\n");
                     return -1; 
                 }
+#ifdef DEBUG
+                printf("INPUT\n");
+#endif 
+                pc++;
                 break;
             case OUTPUT:
                 if(pop(stack, &stack_counter, &stack_element) == -1){
                     printf("OUTPUT: Stack error!\n");
                     return -1;
                 }
+#ifdef DEBUG
+                printf("OUTPUT: About to print: %d \n", stack_element);
+                printf("Stack: ");
+                for(int i=0; i<stack_counter; i++)
+                    printf("%d ", stack[i]);
+                printf("\n");
+#endif 
                 printf("%c", stack_element);
+                pc++;
                 break;
             case CLOCK:
                 time_duration = (double)(clock() - time_start)/CLOCKS_PER_SEC;
                 printf("%.6lf\n", time_duration);
+#ifdef DEBUG
+                printf("CLOCK\n");
+#endif 
+                pc++;
+                break;
             case CONS:
                 if(pop(stack, &stack_counter, &hd) == -1){
                     printf("CONS: Stack error!\n");
@@ -513,6 +558,9 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     printf("CONS: Stack error!\n");
                     return -1;
                 }
+#ifdef DEBUG
+                printf("CONS\n");
+#endif 
                 cons = malloc(2*sizeof(int));
                 cons[0] = hd;
                 cons[1] = tl;
@@ -529,6 +577,7 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     printf("CONS: Stack error!\n");
                     return -1;
                 }
+                pc++;
                 break;
             case HD:
                 if(pop(stack, &stack_counter, &lower_address) == -1){
@@ -539,6 +588,9 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     printf("HD: Stack error!\n");
                     return -1;
                 }
+#ifdef DEBUG
+                printf("HD\n");
+#endif 
                 address = ((uintptr_t)upper_address) << 32 | lower_address;
 
                 cons = (int *)address;
@@ -546,6 +598,7 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     printf("HD: Stack error!\n");
                     return -1;
                 }
+                pc++;
                 break;
             case TL:
                 if(pop(stack, &stack_counter, &lower_address) == -1){
@@ -556,6 +609,9 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     printf("TL: Stack error!\n");
                     return -1;
                 }
+#ifdef DEBUG
+                printf("TL\n");
+#endif 
                 address = ((uintptr_t)upper_address) << 32 | lower_address;
 
                 cons = (int *)address;
@@ -563,71 +619,31 @@ int run_program(uint8_t program[65536][5], int max_pc){
                     printf("HD: Stack error!\n");
                     return -1;
                 }
+                pc++;
                 break;
             default:
                 printf("Something went wrong when running the program!\n");
-                break;
+                return 0;
         }
-        pc++;
+#ifdef DEBUG
+        usleep(10000);
+#endif
     }
 }
-/*
-// Test run_program()
-int main() {
-    uint8_t program[65536][5];
-    program[0][0] = JNZ;
-    program[0][1] = 1;
-    program[0][2] = 0;
-    program[1][0] = HALT;
-    run_program(program);
-    return 0;
-}
-*/
 
 int main(int argc, char **argv) {
-    uint8_t program[65536][5];
-    for (int i=0; i<65536; i++){
-        for (int j=0; j<5; j++){
-            program[i][j] = 0;
-        }
-    }
-    
+    uint8_t *byte_program = malloc(PROGRAM_SIZE * sizeof(uint8_t));
     FILE *fp;
     fp = fopen(argv[1], "rb");
     if (!fp) {
-        printf("Error opening file!\n");
-        return 1;
+        printf("Error while opening input file!\n");
+        return -1;
     }
 
-    int max_pc = read_program(fp, program);
-    printf("Successfully read the program!\n");
-    printf("Program length in commands: %d\n", max_pc);
+    int num_of_bytes = fread(byte_program, sizeof(uint8_t), PROGRAM_SIZE, fp);
+    fclose(fp);
     
-    run_program(program, max_pc);
-    printf("Successfully ran the program!\n");
+    run_program(num_of_bytes, byte_program);
 
     return 0;
 }
-
-/*
-int main(int argc, char **argv) {
-    // We store the program commands in this array.
-    // Maximum number of commands is 65536.
-    // Each command has 1 byte as an op-code, and 1 or more bytes as
-    // integer parameters.
-    uint8_t program[65536][5];
-    
-    FILE *fp;
-    fp = fopen(argv[1], "rb");
-    if (!fp) {
-        printf("Error opening file!\n");
-        return 1;
-    }
-
-    read_program(fp, program);
-
-    // run_program(program);
-
-    return 0;
-}
-*/
