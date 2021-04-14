@@ -28,4 +28,40 @@
 #define HD      0x31
 #define TL      0x32
 
-#define STACK_SIZE 1000
+#define STACK_SIZE 65535
+#define PROGRAM_SIZE 65535
+
+// These functions bellow are used for the stack.
+
+int pop(int stack[], int *stack_counter, int *stack_element) {
+    /*
+    Pops an element from the stack, decrements the stack counter and returns the
+    popped element in 'stack_element'.
+    */
+    if (*stack_counter == 0) {
+        printf("The stack is empty. Cannot pop!\n");
+        return -1;
+    }
+
+    *stack_element = stack[--(*stack_counter)];
+    return 0;
+}
+
+int push(int stack[], int *stack_counter, int new_elem) {
+    /*
+    Pushes 'new_elem' in the stack and increments the stack counter.
+    */
+    if (*stack_counter == STACK_SIZE-1) {
+        printf("The stack is full. Cannot push!\n");
+        return -1;
+    }
+    
+    stack[(*stack_counter)++] = new_elem;
+    return 0;
+}
+
+int swap(int *x, int *y){
+    int temp = *x;
+    *x = *y;
+    *y = temp;
+}

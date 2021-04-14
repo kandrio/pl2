@@ -545,13 +545,14 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                 pc++;
                 break;
             default:
-                printf("Something went wrong when running the program!\n");
-                return 0;
+                printf("Encountered unknown command op-code.\n");
+                return -1;
         }
 #ifdef DEBUG
         usleep(10000);
 #endif
     }
+    return 0;
 }
 
 int main(int argc, char **argv) {
