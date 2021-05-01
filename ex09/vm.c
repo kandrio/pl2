@@ -3,11 +3,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <stdbool.h>
 #include "vm.h"
 
 int run_program(int num_of_bytes, uint8_t byte_program[65535]){
     int pc = 0, stack[STACK_SIZE], stack_counter = 0, stack_index, stack_element, 
         a, b, hd, tl, upper_address, lower_address;
+    bool is_ptr[STACK_SIZE];
     clock_t time_start = clock();
     double time_duration;
     int *cons;
@@ -491,7 +493,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                 address = (uintptr_t)cons;
                 upper_address = (int)((address & 0xFFFFFFFF00000000LL) >> 32);
                 lower_address = (int)(address & 0xFFFFFFFFLL);
-
+                is_ptr[stack_counter] = true;
                 if (push(stack, &stack_counter, upper_address) == -1){
                     printf("CONS: Stack error!\n");
                     return -1;
@@ -511,6 +513,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("HD: Stack error!\n");
                     return -1;
                 }
+                is_ptr[stack_counter] = false;
 #ifdef DEBUG
                 printf("HD\n");
 #endif 
@@ -532,6 +535,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("TL: Stack error!\n");
                     return -1;
                 }
+                is_ptr[stack_counter] = false;
 #ifdef DEBUG
                 printf("TL\n");
 #endif 

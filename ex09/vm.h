@@ -31,8 +31,11 @@
 #define STACK_SIZE 65535
 #define PROGRAM_SIZE 65535
 
-// These functions bellow are used for the stack.
+#define HEAP_SIZE 2097152
 
+// -----------------------------------------------------------------------------
+// Functions for the STACK.
+// -----------------------------------------------------------------------------
 int pop(int stack[], int *stack_counter, int *stack_element) {
     /*
     Pops an element from the stack, decrements the stack counter and returns the
@@ -64,4 +67,40 @@ int swap(int *x, int *y){
     int temp = *x;
     *x = *y;
     *y = temp;
+}
+
+// -----------------------------------------------------------------------------
+// HEAP related.
+// -----------------------------------------------------------------------------
+
+typedef struct cons_cell {
+    int hd, tl;
+} cons_cell;
+
+typedef struct Heap {
+    cons_cell *from_space, *to_space, *middle, *root;
+    int heap_size;
+} Heap;
+
+Heap alloc_heap(int heap_size) {
+    Heap heap;
+    heap.heap_size = heap_size;
+    heap.from_space = malloc(heap_size*sizeof(cons_cell));
+    heap.middle = heap.from_space + heap.heap_size/2;
+    heap.to_space = heap.middle;
+    heap.root = heap.from_space;
+    return heap;
+}
+
+
+Heap collect(Heap heap, int *stack, int stack_counter){
+
+    for (int i=0; i<stack_counter; i++){
+        if (is_ptr(stack[i])) {
+            stack[i] = ...;
+        }
+    }
+    
+    // swap spaces.
+
 }
