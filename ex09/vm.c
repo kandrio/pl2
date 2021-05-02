@@ -3,16 +3,24 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
-#include <stdbool.h>
 #include "vm.h"
 
 int run_program(int num_of_bytes, uint8_t byte_program[65535]){
     int pc = 0, stack[STACK_SIZE], stack_counter = 0, stack_index, stack_element, 
         a, b, hd, tl, upper_address, lower_address;
+    
+    /* Heap related */
     bool is_ptr[STACK_SIZE];
+    for(int i=0; i<STACK_SIZE; i++){
+        is_ptr[i] = false;
+    }
+    Heap *heap = alloc_heap(HEAP_SIZE);
+    int offset;       
+    cons_cell * cons;
+    /* Heap relatesd */
+    
     clock_t time_start = clock();
     double time_duration;
-    int *cons;
     uintptr_t address;
     
     while(pc < num_of_bytes) {
@@ -486,64 +494,44 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("CONS\n");
 #endif 
-                cons = malloc(2*sizeof(int));
-                cons[0] = hd;
-                cons[1] = tl;
-                // cons has size = 64bit = 2 ints = 2 stack_elements
-                address = (uintptr_t)cons;
-                upper_address = (int)((address & 0xFFFFFFFF00000000LL) >> 32);
-                lower_address = (int)(address & 0xFFFFFFFFLL);
+                offset = alloc_and_set_cons(heap, hd, tl);
+                
                 is_ptr[stack_counter] = true;
-                if (push(stack, &stack_counter, upper_address) == -1){
-                    printf("CONS: Stack error!\n");
-                    return -1;
-                }
-                if (push(stack, &stack_counter, lower_address) == -1){
+                if (push(stack, &stack_counter, offset) == -1){
                     printf("CONS: Stack error!\n");
                     return -1;
                 }
                 pc++;
                 break;
             case HD:
-                if(pop(stack, &stack_counter, &lower_address) == -1){
-                    printf("HD: Stack error!\n");
-                    return -1;
-                }
-                if(pop(stack, &stack_counter, &upper_address) == -1){
+                if(pop(stack, &stack_counter, &offset) == -1){
                     printf("HD: Stack error!\n");
                     return -1;
                 }
                 is_ptr[stack_counter] = false;
 #ifdef DEBUG
                 printf("HD\n");
-#endif 
-                address = ((uintptr_t)upper_address) << 32 | lower_address;
-
-                cons = (int *)address;
-                if (push(stack, &stack_counter, cons[0]) == -1){
+#endif
+                cons = get_cons(heap, offset);
+                if (push(stack, &stack_counter, cons->hd) == -1){
                     printf("HD: Stack error!\n");
                     return -1;
                 }
                 pc++;
                 break;
             case TL:
-                if(pop(stack, &stack_counter, &lower_address) == -1){
+                if(pop(stack, &stack_counter, &offset) == -1){
                     printf("TL: Stack error!\n");
                     return -1;
                 }
-                if(pop(stack, &stack_counter, &upper_address) == -1){
-                    printf("TL: Stack error!\n");
-                    return -1;
-                }
+                
                 is_ptr[stack_counter] = false;
 #ifdef DEBUG
                 printf("TL\n");
 #endif 
-                address = ((uintptr_t)upper_address) << 32 | lower_address;
-
-                cons = (int *)address;
-                if (push(stack, &stack_counter, cons[1]) == -1){
-                    printf("HD: Stack error!\n");
+                cons = get_cons(heap, offset);
+                if (push(stack, &stack_counter, cons->tl) == -1){
+                    printf("TL: Stack error!\n");
                     return -1;
                 }
                 pc++;

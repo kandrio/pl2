@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 #define HALT    0x00
 #define JUMP    0x01
 #define JNZ     0x02
@@ -78,25 +80,40 @@ typedef struct cons_cell {
 } cons_cell;
 
 typedef struct Heap {
-    cons_cell *from_space, *to_space, *middle, *root;
-    int heap_size;
+    cons_cell *from_space, *to_space, *middle, *start, *heap_position;
 } Heap;
 
-Heap alloc_heap(int heap_size) {
-    Heap heap;
-    heap.heap_size = heap_size;
-    heap.from_space = malloc(heap_size*sizeof(cons_cell));
-    heap.middle = heap.from_space + heap.heap_size/2;
-    heap.to_space = heap.middle;
-    heap.root = heap.from_space;
+Heap * alloc_heap(int heap_size) {
+    Heap * heap;
+    heap->from_space = malloc(HEAP_SIZE*sizeof(cons_cell));
+    heap->middle = heap->from_space + HEAP_SIZE/2;
+    heap->to_space = heap->middle;
+    heap->start = heap->from_space;
+    heap->heap_position = heap->from_space;
     return heap;
 }
 
+int alloc_and_set_cons(Heap *heap, int hd, int tl){
+    heap->heap_position->hd = hd;
+    heap->heap_position->tl = tl;
+    
+    int offset = heap->heap_position - heap->from_space;
+    
+    heap->heap_position += sizeof(cons_cell);
+    return offset;
+}
 
-Heap collect(Heap heap, int *stack, int stack_counter){
+cons_cell * get_cons(Heap * heap, int offset){
+    cons_cell * cons;
+    cons = (heap->from_space + offset);
+    return cons;
+}
+
+/*
+Heap collect(Heap heap, int *stack, int stack_counter, bool *is_ptr){
 
     for (int i=0; i<stack_counter; i++){
-        if (is_ptr(stack[i])) {
+        if (is_ptr[stack[i]]) {
             stack[i] = ...;
         }
     }
@@ -104,3 +121,4 @@ Heap collect(Heap heap, int *stack, int stack_counter){
     // swap spaces.
 
 }
+*/
