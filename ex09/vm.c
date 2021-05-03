@@ -558,9 +558,7 @@ int main(int argc, char **argv) {
     }
 
     int num_of_bytes = fread(byte_program, sizeof(uint8_t), PROGRAM_SIZE, fp);
-    
     fclose(fp);
-    
     run_program(num_of_bytes, byte_program);
 
     return 0;
