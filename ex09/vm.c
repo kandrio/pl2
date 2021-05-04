@@ -12,9 +12,10 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
     /* Heap related */
     bool is_ptr[STACK_SIZE];
     for(int i=0; i<STACK_SIZE; i++){
-        is_ptr[i] = false;
+        is_ptr[i] = false;            
     }
-    Heap *heap = alloc_heap(HEAP_SIZE);
+    Heap *heap = alloc_heap();
+
     int offset;       
     cons_cell * cons;
     /* Heap relatesd */
@@ -494,6 +495,22 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("CONS\n");
 #endif 
+                if((heap->from_space == heap->start && heap->heap_position == heap->middle) || 
+                   (heap->from_space == heap->middle && heap->heap_position == heap->end)){
+#ifdef DEBUG
+                    printf("Garbage collection...\n");
+#endif                  
+                    if(collect(heap, stack, stack_counter, is_ptr) == -1){
+                        printf("Something went wrong in the heap.\n");
+                        return -1;
+                    }
+
+                    if((heap->from_space == heap->start && heap->heap_position >= heap->middle) || 
+                       (heap->to_space == heap->middle && heap->heap_position >= heap->end)){
+                        printf("Not enough space in the heap after GC.\n");
+                        return -1;
+                    }
+                }
                 offset = alloc_and_set_cons(heap, hd, tl);
                 
                 is_ptr[stack_counter] = true;
