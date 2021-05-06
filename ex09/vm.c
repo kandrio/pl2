@@ -10,10 +10,6 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
         a, b, hd, tl, upper_address, lower_address;
     
     /* Heap related */
-    bool is_ptr[STACK_SIZE];
-    for(int i=0; i<STACK_SIZE; i++){
-        is_ptr[i] = false;            
-    }
     Heap *heap = alloc_heap();
 
     int offset;       
@@ -45,7 +41,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("JNZ: Stack error!\n");
                     return -1;
                 }
-                if (stack_element != 0){
+                if (get_original_value(stack_element) != 0){
                     pc = (int)((uint16_t)byte_program[pc+1]);
 #ifdef DEBUG
                     printf("JNZ: Not zero, going at PC: %d\n", pc);
@@ -75,7 +71,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     return -1; 
                 }
 #ifdef DEBUG
-                printf("DUP: Duplicated stack element %d from position: %d\n", stack_element, stack_index);
+                printf("DUP: Duplicated stack element %d from position: %d\n", get_original_value(stack_element), stack_index);
 #endif        
                 pc += 2;
                 break;
@@ -102,7 +98,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("PUSH4: Stack element %d\n", stack_element);
 #endif          
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("PUSH4: Stack error!\n");
                     return -1; 
                 }
@@ -116,7 +112,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                 printf("PUSH2: Stack element %d\n", stack_element);
 #endif  
                 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("PUSH2: Stack error!\n");
                     return -1;
                 }
@@ -129,11 +125,10 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                 printf("PUSH1: Stack element %d\n", stack_element);
 #endif 
 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("PUSH1: Stack error!\n");
                     return -1; 
                 }
-
                 pc += 2;
                 break;
             case ADD:
@@ -145,14 +140,14 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("ADD: Stack error!\n");
                     return -1;
                 }
-                stack_element = a + b;
+                stack_element = to_non_ptr(get_original_value(a) + get_original_value(b));
 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("ADD: Stack error!\n");
                     return -1;
                 }
 #ifdef DEBUG
-                printf("ADD: %d + %d = %d\n", a, b, stack_element);
+                printf("ADD: %d + %d = %d\n", get_original_value(a), get_original_value(b), get_original_value(stack_element));
 #endif 
 
                 pc++;
@@ -166,14 +161,14 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("SUB: Stack error!\n");
                     return -1;
                 }
-                stack_element = a - b;
+                stack_element = to_non_ptr(get_original_value(a) - get_original_value(b));
 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("SUB: Stack error!\n");
                     return -1; 
                 }
 #ifdef DEBUG
-                printf("SUB: %d - %d = %d\n", a, b, stack_element);
+                printf("SUB: %d - %d = %d\n", get_original_value(a), get_original_value(b), get_original_value(stack_element));
 #endif 
                 
                 pc++;
@@ -187,7 +182,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("MUL: Stack error!\n");
                     return -1;
                 }
-                stack_element = a*b;
+                stack_element = to_non_ptr(get_original_value(a) * get_original_value(b));
 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("MUL: Stack error!\n");
@@ -208,7 +203,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("DIV: Stack error!\n");
                     return -1;
                 }
-                stack_element = a/b;
+                stack_element = to_non_ptr(get_original_value(a) / get_original_value(b));
 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("DIV: Stack error!\n");
@@ -228,7 +223,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("MOD: Stack error!\n");
                     return -1;
                 }
-                stack_element = a%b;
+                stack_element = to_non_ptr(get_original_value(a) % get_original_value(b));
 
                 if (push(stack, &stack_counter, stack_element) == -1){
                     printf("MOD: Stack error!\n");
@@ -248,7 +243,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("EQ: Stack error!\n");
                     return -1;
                 }
-                if (a == b) {
+                if (get_original_value(a) == get_original_value(b)) {
                     stack_element = 1;
                 }
                 else {
@@ -257,7 +252,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("EQ: Result: %d\n", stack_element);
 #endif 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("EQ: Stack error!\n");
                     return -1; 
                 }
@@ -273,7 +268,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("NE: Stack error!\n");
                     return -1;
                 }
-                if (a != b) {
+                if (get_original_value(a) != get_original_value(b)) {
                     stack_element = 1;
                 }
                 else {
@@ -282,7 +277,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("NE: Result: %d\n", stack_element);
 #endif 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("NE: Stack error!\n");
                     return -1; 
                 }
@@ -298,7 +293,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("LT: Stack error!\n");
                     return -1;
                 }
-                if (a < b) {
+                if (get_original_value(a) < get_original_value(b)) {
                     stack_element = 1;
                 }
                 else {
@@ -307,7 +302,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("LT: Result: %d\n", stack_element);
 #endif 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("LT: Stack error!\n");
                     return -1; 
                 }
@@ -322,7 +317,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("GT: Stack error!\n");
                     return -1;
                 }
-                if (a > b) {
+                if (get_original_value(a) > get_original_value(b)) {
                     stack_element = 1;
                 }
                 else {
@@ -331,7 +326,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("GT: Result %d\n", stack_element);
 #endif 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("GT: Stack error!\n");
                     return -1; 
                 }
@@ -346,7 +341,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("LE: Stack error!\n");
                     return -1;
                 }
-                if (a <= b) {
+                if (get_original_value(a) <= get_original_value(b)) {
                     stack_element = 1;
                 }
                 else {
@@ -355,7 +350,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("LE: Result %d\n", stack_element);
 #endif 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("LE: Stack error!\n");
                     return -1;
                 }
@@ -370,7 +365,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("GE: Stack error!\n");
                     return -1;
                 }
-                if (a >= b) {
+                if (get_original_value(a) >= get_original_value(b)) {
                     stack_element = 1;
                 }
                 else {
@@ -379,7 +374,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("GE: Result %d\n", stack_element);
 #endif 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("GE: Stack error!\n");
                     return -1; 
                 }
@@ -390,7 +385,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("NOT: Stack error!\n");
                     return -1;
                 }
-                if(a == 0){
+                if(get_original_value(a) == 0){
                     stack_element = 1;
                 }
                 else {
@@ -399,7 +394,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("NOT: Result: %d\n", stack_element);
 #endif 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("NOT: Stack error!\n");
                     return -1; 
                 }
@@ -414,7 +409,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("AND: Stack error!\n");
                     return -1;
                 }
-                if (a != 0 && b != 0) {
+                if (get_original_value(a) != 0 && get_original_value(b) != 0) {
                     stack_element = 1;
                 }
                 else {
@@ -423,7 +418,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("AND: Result: %d\n", stack_element);
 #endif 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("AND: Stack error!\n");
                     return -1; 
                 }
@@ -438,7 +433,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("OR: Stack error!\n");
                     return -1;
                 }
-                if (a == 0 && b == 0) {
+                if (get_original_value(a) == 0 && get_original_value(b) == 0) {
                     stack_element = 0;
                 }
                 else {
@@ -447,7 +442,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
 #ifdef DEBUG
                 printf("OR: Result: %d\n", stack_element);
 #endif 
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("OR: Stack error!\n");
                     return -1; 
                 }
@@ -455,7 +450,7 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                 break;
             case INPUT:
                 scanf("%d", &stack_element);
-                if (push(stack, &stack_counter, stack_element) == -1){
+                if (push(stack, &stack_counter, to_non_ptr(stack_element)) == -1){
                     printf("INPUT: Stack error!\n");
                     return -1; 
                 }
@@ -470,9 +465,9 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     return -1;
                 }
 #ifdef DEBUG
-                printf("OUTPUT: About to print: %c \n", stack_element);
+                printf("OUTPUT: About to print: %c \n", get_original_value(stack_element));
 #endif 
-                printf("%c", stack_element);
+                printf("%c", get_original_value(stack_element));
                 pc++;
                 break;
             case CLOCK:
@@ -484,40 +479,50 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                 pc++;
                 break;
             case CONS:
-                if(pop(stack, &stack_counter, &hd) == -1){
-                    printf("CONS: Stack error!\n");
-                    return -1;
-                }
-                if(pop(stack, &stack_counter, &tl) == -1){
-                    printf("CONS: Stack error!\n");
-                    return -1;
-                }
 #ifdef DEBUG
-                printf("CONS\n");
-#endif 
+                printf("-----CONS------\n");
+#endif  
+                // Check if "from-space" is full, in order to start the garbage collection.
                 if((heap->from_space == heap->start && heap->heap_position == heap->middle) || 
                    (heap->from_space == heap->middle && heap->heap_position == heap->end)){
 #ifdef DEBUG
-                    printf("Garbage collection...\n");
+                    printf("----------------GARBAGE COLLECTION...------------------\n");
 #endif                  
-                    if(collect(heap, stack, stack_counter, is_ptr) == -1){
+                    if(collect(heap, stack, stack_counter) == -1){
                         printf("Something went wrong in the heap.\n");
                         return -1;
                     }
 
-                    if((heap->from_space == heap->start && heap->heap_position >= heap->middle) || 
-                       (heap->to_space == heap->middle && heap->heap_position >= heap->end)){
+                    if((heap->from_space == heap->start  && heap->heap_position >= heap->middle) || 
+                       (heap->from_space == heap->middle && heap->heap_position >= heap->end)){
                         printf("Not enough space in the heap after GC.\n");
                         return -1;
                     }
                 }
-                offset = alloc_and_set_cons(heap, hd, tl);
-                
-                is_ptr[stack_counter] = true;
-                if (push(stack, &stack_counter, offset) == -1){
+
+                if(pop(stack, &stack_counter, &tl) == -1){
                     printf("CONS: Stack error!\n");
                     return -1;
                 }
+                if(pop(stack, &stack_counter, &hd) == -1){
+                    printf("CONS: Stack error!\n");
+                    return -1;
+                }
+        
+                offset = alloc_and_set_cons(heap, hd, tl);
+                /*
+                printf("ALL HEAP AFTER GC:\n");
+                for(cons_cell * temp = heap->start; temp < heap->end; temp++){
+                    printf("HD=%d, TL=%d\n", temp->hd, temp->tl);
+                }
+                */
+                if (push(stack, &stack_counter, to_ptr(offset)) == -1){
+                    printf("CONS: Stack error!\n");
+                    return -1;
+                }
+#ifdef DEBUG
+                printf("Original offset == %d\n", offset);
+#endif
                 pc++;
                 break;
             case HD:
@@ -525,11 +530,10 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     printf("HD: Stack error!\n");
                     return -1;
                 }
-                is_ptr[stack_counter] = false;
 #ifdef DEBUG
                 printf("HD\n");
 #endif
-                cons = get_cons(heap, offset);
+                cons = get_cons(heap, get_original_value(offset));
                 if (push(stack, &stack_counter, cons->hd) == -1){
                     printf("HD: Stack error!\n");
                     return -1;
@@ -542,11 +546,11 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                     return -1;
                 }
                 
-                is_ptr[stack_counter] = false;
 #ifdef DEBUG
                 printf("TL\n");
+                printf("Original offset == %d\n", get_original_value(offset));
 #endif 
-                cons = get_cons(heap, offset);
+                cons = get_cons(heap, get_original_value(offset));
                 if (push(stack, &stack_counter, cons->tl) == -1){
                     printf("TL: Stack error!\n");
                     return -1;
@@ -558,7 +562,12 @@ int run_program(int num_of_bytes, uint8_t byte_program[65535]){
                 return -1;
         }
 #ifdef DEBUG
-        usleep(10000);
+        usleep(5000);
+        printf("---PRINTING STACK---\n");
+        for(int i=0; i<stack_counter; i++){
+            printf("%d ", stack[i]);
+        }
+        printf("\n");
 #endif
     }
     return 0;
